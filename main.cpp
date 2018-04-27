@@ -100,7 +100,7 @@ int main()
         case '4':
         {
             char temp;
-            cout<<"Flip (h)orizontally or (v)ertically >>> ";
+            cout<<"Enter 'h' to flip horizontally or 'v' to flip vertically >>> ";
             cin>>temp;
             img.flip_image(temp);
             break;
@@ -108,7 +108,7 @@ int main()
         case '5':
         {
             int temp;
-            cout<<"Do you want to rotate (90), (180) or (270) degrees >>> ";
+            cout<<"Enter (90), (180) or (270) degrees to rotate >>> ";
             cin>>temp;
             switch (temp)
             {
@@ -134,7 +134,7 @@ int main()
         case '6':
         {
             char temp;
-            cout<<"Do you want to (d)arken or (l)ighten >>> ";
+            cout<<"Enter (d)arken or (l)ighten >>> ";
             cin>>temp;
             switch (temp)
             {
@@ -218,7 +218,7 @@ int main()
         case 'a':
         {
             char temp;
-            cout<<"Do you want to Mirror (u)pper, (d)own, (r)ight or (l)eft >>> ";
+            cout<<"Enter (u)pper, (d)own, (r)ight or (l)eft to Mirror >>> ";
             cin>>temp;
             switch (temp)
             {
