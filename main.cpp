@@ -16,14 +16,13 @@ string checkString(string _s)
 }
 void displayStatus()
 {
-    cout << setw(20) << "File name: " << checkString(inputFile) << setw(20) << ", File size: " << img.get_size() <<" Byte" << endl;
-    cout << setw(20) << "Image height: " << img.get_height() << setw(20) << ", Image width: "<< img.get_width() << ", Pixel count: " << img.pixel_count() << endl;
+    cout << setw(15) << "File name: " << checkString(inputFile) << setw(15) << "File size: " << img.get_size() <<" Byte" << endl;
+    cout << setw(18) << "Image height: " << img.get_height() << setw(19) << " Image width: "<< img.get_width() << setw(18) << " Pixel count: " << img.pixel_count() << endl;
     cout << endl;
 }
 void displayHello()
 {
-    cout << "NOTE : This program only supports 24-bits per pixel bitmap format files." << endl;
-    cout << "Ahlan ya user ya habibi :)" << endl << endl;
+    cout << "NOTE : This program only supports 24-bits per pixel bitmap format files." << endl << endl;
 }
 void displayError()
 {
@@ -43,9 +42,9 @@ void displayBye()
 void displayMenu()
 {
     cout << "Please select a filter to apply it on the image or 0 to exit:" << endl << endl;
-    cout << "1 - Black & White Filter\n";
-    cout << "2 - Invert Filter\n";
-    cout << "3 - Merge Filter\n";
+    cout << "1 - Black and White Image Filter\n";
+    cout << "2 - Invert Image\n";
+    cout << "3 - Merge Images\n";
     cout << "4 - Flip Image\n";
     cout << "5 - Rotate Image\n";
     cout << "6 - Darken and Lighten Image\n";
@@ -55,9 +54,9 @@ void displayMenu()
     cout << "a - Mirror Image\n";
     cout << "b - Shuffle Image\n";
     cout << "c - Blur Image\n";
-    cout << "d - Grayscale\n";
-    cout << "l - Load another image\n";
-    cout << "s - Save the image to a file\n";
+    cout << "d - Grayscale Image\n";
+    cout << "l - Load a Image\n";
+    cout << "s - Save the Image\n";
     cout << "0 - Exit\n" << endl;
     if(!img)
         cout << "image::set_image() Warning - select (l) to load image." << endl << endl;
@@ -92,7 +91,7 @@ int main()
         case '3':
         {
             image img2;
-            cout << "Enter file name(2): "<<endl<<endl<<">>> ";
+            cout << "Enter file name(2) >>> ";
             cin>>inputFile2;
             img2.set_image(checkString(inputFile2));
             img.merge_image(img2);
@@ -101,7 +100,7 @@ int main()
         case '4':
         {
             char temp;
-            cout<<"Flip (h)orizontally or (v)ertically?"<<endl<<endl<<">>> ";
+            cout<<"Flip (h)orizontally or (v)ertically >>> ";
             cin>>temp;
             img.flip_image(temp);
             break;
@@ -109,7 +108,7 @@ int main()
         case '5':
         {
             int temp;
-            cout<<"Do you want to rotate (90), (180) or (270) degrees?"<<endl<<endl<<">>> ";
+            cout<<"Do you want to rotate (90), (180) or (270) degrees >>> ";
             cin>>temp;
             switch (temp)
             {
@@ -135,7 +134,7 @@ int main()
         case '6':
         {
             char temp;
-            cout<<"Do you want to (d)arken or (l)ighten?"<<endl<<endl<<">>> ";
+            cout<<"Do you want to (d)arken or (l)ighten >>> ";
             cin>>temp;
             switch (temp)
             {
@@ -163,7 +162,7 @@ int main()
         case '8':
         {
             int temp;
-            cout<<"Which quarter 1, 2, 3 or 4?"<<endl<<endl<<">>> ";
+            cout<<"Which quarter 1, 2, 3 or 4 >>> ";
             cin>>temp;
             switch (temp)
             {
@@ -193,7 +192,7 @@ int main()
         case '9':
         {
             int temp;
-            cout<<"Shrink to 1/(2), 1/(3) or 1/(4)?"<<endl<<endl<<">>> ";
+            cout<<"Shrink to 1/(2), 1/(3) or 1/(4) >>> ";
             cin>>temp;
             switch (temp)
             {
@@ -219,7 +218,7 @@ int main()
         case 'a':
         {
             char temp;
-            cout<<"Do you want to Mirror (u)pper, (d)own, (r)ight or (l)eft?"<<endl<<endl<<">>> ";
+            cout<<"Do you want to Mirror (u)pper, (d)own, (r)ight or (l)eft >>> ";
             cin>>temp;
             switch (temp)
             {
@@ -249,7 +248,7 @@ int main()
         case 'b':
         {
             int arr[4];
-            cout << "Input order of shuffle ex(4,1,2,3): "<<endl<<endl<<">>> ";
+            cout << "Input order like that (4 1 2 3) >>> ";
             for(int k = 0; k < 4; k++)
                 cin>>arr[k];
             img = img.shuffle_image(arr);
@@ -270,7 +269,7 @@ int main()
         }
         case 's':
         {
-            cout << "Enter file name: "<<endl<<endl<<">>> ";
+            cout << "Enter file name >>> ";
             cin>>outputFile;
             img.save_image(checkString(outputFile));
             displayDone();
@@ -278,7 +277,7 @@ int main()
         }
         case 'l':
         {
-            cout << "Enter file name: "<<endl<<endl<<">>> ";
+            cout << "\nEnter file name >>> ";
             cin>>inputFile;
             img.set_image(checkString(inputFile));
             displayDone();
