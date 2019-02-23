@@ -20,7 +20,7 @@ using namespace std;
 class image
 {
 private:
-	enum channel_mode { rgb_mode = 0, bgr_mode = 1};
+    enum channel_mode { rgb_mode = 0, bgr_mode = 1};
 
     struct rgb_t
     {
@@ -385,8 +385,8 @@ public:
         create_bitmap();
         data_ = image.data_;
     }
-	
-	bool operator!()
+
+    bool operator!()
     {
         return (data_.size()   == 0) ||
                (width_         == 0) ||
@@ -394,7 +394,7 @@ public:
                (row_increment_ == 0);
     }
 
-	operator bool()
+    operator bool()
     {
         return (data_.size()    != 0) &&
                (width_          != 0) &&
