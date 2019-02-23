@@ -1,12 +1,11 @@
-/*
-****************************************************************************
-*                        FCI – Programming 2 – 2018                        *
-** Project Name: Bitmap Image Library                                      *
-** Last Modification Date: 18/04/2018                                      *
-** Author: Mahmoud Ahmed Tawfik                                            *
-** Note: This library only supports 24-bits per pixel bitmap format files. *
-****************************************************************************
-*/
+/**
+ *  @file    image.h
+ *  @author  Mahmoud Ahmed Tawfik (mahmoudahmedd)
+ *  @date    23/02/2019
+ *  @version 1.1
+ *
+ *  @brief Bitmap Image Library
+ */
 
 #ifndef __H__IMAGE__
 #define __H__IMAGE__
@@ -20,595 +19,15 @@ using namespace std;
 
 class image
 {
-public:
-    enum channel_mode { rgb_mode = 0, bgr_mode = 1};
+private:
+	enum channel_mode { rgb_mode = 0, bgr_mode = 1};
+
     struct rgb_t
     {
         unsigned char   red;
         unsigned char green;
         unsigned char  blue;
     };
-    image()
-        :
-        file_name_(""),
-        width_(0),
-        height_(0),
-        row_increment_(0),
-        bytes_per_pixel_(3)
-    {}
-    image(const std::string& filename)
-        :
-        file_name_(filename),
-        width_          (0),
-        height_         (0),
-        row_increment_  (0),
-        bytes_per_pixel_(0),
-        channel_mode_(bgr_mode)
-    {
-        load_bitmap();
-    }
-    image(const unsigned int width, const unsigned int height)
-        :
-        file_name_(""),
-        width_ (width ),
-        height_(height),
-        row_increment_  (0),
-        bytes_per_pixel_(3),
-        channel_mode_(bgr_mode)
-    {
-        create_bitmap();
-    }
-    image(const image& image)
-        :
-        file_name_(image.file_name_),
-        width_    (image.width_    ),
-        height_   (image.height_   ),
-        row_increment_  (0),
-        bytes_per_pixel_(3),
-        channel_mode_(bgr_mode)
-    {
-        create_bitmap();
-        data_ = image.data_;
-    }
-    image& operator=(const image& image)
-    {
-        if (this != &image)
-        {
-            file_name_       = image.file_name_;
-            bytes_per_pixel_ = image.bytes_per_pixel_;
-            width_           = image.width_;
-            height_          = image.height_;
-            row_increment_   = 0;
-            channel_mode_    = image.channel_mode_;
-            create_bitmap();
-            data_ = image.data_;
-        }
-        return *this;
-    }
-    void set_image(string file_name)
-    {
-        file_name_       =  file_name;
-        width_           =	0;
-        height_          =	0;
-        row_increment_   =	0;
-        bytes_per_pixel_ =	0;
-        channel_mode_    =	bgr_mode;
-        load_bitmap();
-    }
-    bool operator!()
-    {
-        return (data_.size()   == 0) ||
-               (width_         == 0) ||
-               (height_        == 0) ||
-               (row_increment_ == 0);
-    }
-    void save_image(const std::string& file_name) const
-    {
-        std::ofstream stream(file_name.c_str(),std::ios::binary);
-
-        if (!stream)
-        {
-            std::cerr << "image::save_image(): Error - Could not open file "  << file_name << " for writing!" << std::endl;
-            return;
-        }
-
-        bitmap_information_header bih;
-
-        bih.width            = width_;
-        bih.height           = height_;
-        bih.bit_count        = static_cast<unsigned short>(bytes_per_pixel_ << 3);
-        bih.clr_important    = 0;
-        bih.clr_used         = 0;
-        bih.compression      = 0;
-        bih.planes           = 1;
-        bih.size             = bih.struct_size();
-        bih.x_pels_per_meter = 0;
-        bih.y_pels_per_meter = 0;
-        bih.size_image       = (((bih.width * bytes_per_pixel_) + 3) & 0x0000FFFC) * bih.height;
-
-        bitmap_file_header bfh;
-
-        bfh.type             = 19778;
-        bfh.size             = bfh.struct_size() + bih.struct_size() + bih.size_image;
-        bfh.reserved1        = 0;
-        bfh.reserved2        = 0;
-        bfh.off_bits         = bih.struct_size() + bfh.struct_size();
-
-        write_bfh(stream,bfh);
-        write_bih(stream,bih);
-
-        unsigned int padding = (4 - ((3 * width_) % 4)) % 4;
-        char padding_data[4] = { 0x00, 0x00, 0x00, 0x00 };
-
-        for (unsigned int i = 0; i < height_; ++i)
-        {
-            const unsigned char* data_ptr = &data_[(row_increment_ * (height_ - i - 1))];
-
-            stream.write(reinterpret_cast<const char*>(data_ptr), sizeof(unsigned char) * bytes_per_pixel_ * width_);
-            stream.write(padding_data,padding);
-        }
-
-        stream.close();
-    }
-
-
-    void get_pixel(const unsigned int x, const unsigned int y,
-                   unsigned char& red,
-                   unsigned char& green,
-                   unsigned char& blue) const
-    {
-        const unsigned int y_offset = y * row_increment_;
-        const unsigned int x_offset = x * bytes_per_pixel_;
-        const unsigned int offset   = y_offset + x_offset;
-
-        blue  = data_[offset + 0];
-        green = data_[offset + 1];
-        red   = data_[offset + 2];
-    }
-    template <typename RGB>
-    void get_pixel(const unsigned int x, const unsigned int y, RGB& colour) const
-    {
-        get_pixel(x, y, colour.red, colour.green, colour.blue);
-    }
-    rgb_t get_pixel(const unsigned int x, const unsigned int y) const
-    {
-        rgb_t colour;
-        get_pixel(x, y, colour.red, colour.green, colour.blue);
-        return colour;
-    }
-    void set_pixel(const unsigned int x, const unsigned int y,
-                   const unsigned char red,
-                   const unsigned char green,
-                   const unsigned char blue)
-    {
-        const unsigned int y_offset = y * row_increment_;
-        const unsigned int x_offset = x * bytes_per_pixel_;
-        const unsigned int offset   = y_offset + x_offset;
-
-        data_[offset + 0] = blue;
-        data_[offset + 1] = green;
-        data_[offset + 2] = red;
-    }
-    void set_pixel(const unsigned int x, const unsigned int y,rgb_t _color)
-    {
-        set_pixel(x,y,_color.red,_color.green,_color.blue);
-    }
-    void invert_image()
-    {
-        rgb_t color;
-        for(unsigned int i = 0 ; i < this->height_; i++)
-        {
-            for(unsigned int j = 0 ; j < this->width_; j++)
-            {
-                this->get_pixel(j,i,color);
-                this->set_pixel(j,i,255-color.red,255-color.red,255-color.blue);
-            }
-        }
-    }
-    void greyscale_image()
-    {
-        unsigned char temp = 0;
-        rgb_t color;
-        for (unsigned int i = 0; i < this->height_; ++i)
-        {
-            for (unsigned int j = 0; j < this->width_; ++j)
-            {
-                this->get_pixel(j,i,color);
-                temp        = max(color.red,max(color.green,color.blue));
-                color.red   = temp;
-                color.green = temp;
-                color.blue  = temp;
-                this->set_pixel(j,i,color);
-            }
-        }
-    }
-    void BW_image()
-    {
-        unsigned int sum = 0;
-        unsigned char avg = 0;
-        rgb_t color;
-        for (unsigned int i = 0; i < this->height_; ++i)
-        {
-            for (unsigned int j = 0; j < this->width_; ++j)
-            {
-                this->get_pixel(j,i,color);
-                sum += color.red;
-                sum += color.green;
-                sum += color.blue;
-            }
-        }
-        avg = sum / ( (this->height_ * this->width_) * 3);
-        for (unsigned int i = 0; i < this->height_; ++i)
-        {
-            for (unsigned int j = 0; j < this->width_; ++j)
-            {
-                this->get_pixel(j,i,color);
-                if((color.red + color.green + color.blue)/3  > avg)
-                {
-                    color.red   = 255;
-                    color.green = 255;
-                    color.blue  = 255;
-                }
-                else
-                {
-                    color.red   = 0;
-                    color.green = 0;
-                    color.blue  = 0;
-                }
-                this->set_pixel(j,i,color);
-            }
-        }
-    }
-    void merge_image(image _img2)
-    {
-        if(_img2.height_ == this->height_ && _img2.width_ == this->width_)
-        {
-            rgb_t color1;
-            rgb_t color2;
-            rgb_t color3;
-            for (unsigned int i = 0; i < this->height_; ++i)
-            {
-                for (unsigned int j = 0; j < this->width_; ++j)
-                {
-                    this->get_pixel(j,i,color1);
-                    _img2.get_pixel(j,i,color2);
-                    color3.red   = (color1.red + color2.red) / 2;
-                    color3.green = (color1.green + color2.green) / 2;
-                    color3.blue  = (color1.blue + color2.blue) / 2;
-                    this->set_pixel(j,i,color3);
-                }
-            }
-        }
-        else
-        {
-            cout << "image::merge_image(image _img2): Error - The height and width of the two images are not equal " << endl;
-        }
-    }
-    void flip_image(char _c)
-    {
-
-        if(_c == 'v')
-        {
-            rgb_t color1;
-            rgb_t color2;
-            for (unsigned int i = 0; i < this->height_/2; ++i)
-            {
-                for (unsigned int j = 0; j < this->width_; ++j)
-                {
-                    this->get_pixel(j,i,color1);
-                    this->get_pixel(j,height_-1-i,color2);
-                    this->set_pixel(j,i,color2);
-                    this->set_pixel(j,height_-1-i,color1);
-                }
-            }
-        }
-        else if(_c == 'h')
-        {
-            rgb_t color1;
-            rgb_t color2;
-            for (unsigned int i = 0; i < this->height_; ++i)
-            {
-                for (unsigned int j = 0; j < this->width_/2; ++j)
-                {
-                    this->get_pixel(j,i,color1);
-                    this->get_pixel(width_-1-j,i,color2);
-                    this->set_pixel(j,i,color2);
-                    this->set_pixel(width_-1-j,i,color1);
-                }
-            }
-        }
-    }
-    void rotate_image(unsigned int rotations)
-    {
-        for (unsigned int r = 0; r < rotations; ++r)
-        {
-            image temp(this->height_,this->width_);
-            rgb_t color;
-            for (unsigned int i = 0; i < this->height_; ++i)
-            {
-                for (unsigned int j = 0; j < this->width_; ++j)
-                {
-                    this->get_pixel(j,i,color);
-                    temp.set_pixel(i,this->width_-1-j,color);
-                }
-            }
-            *this = temp;
-        }
-
-    }
-    void lighten_image()
-    {
-        rgb_t color;
-        for(unsigned int i = 0 ; i < this->height_; i++)
-        {
-            for(unsigned int j = 0 ; j < this->width_; j++)
-            {
-                this->get_pixel(j,i,color);
-                color.red   = min(color.red   * 2,255);
-                color.green = min(color.green * 2,255);
-                color.blue  = min(color.blue  * 2,255);
-                this->set_pixel(j,i,color);
-            }
-        }
-    }
-    void darken_image()
-    {
-        rgb_t color;
-        for(unsigned int i = 0 ; i < this->height_; i++)
-        {
-            for(unsigned int j = 0 ; j < this->width_; j++)
-            {
-                this->get_pixel(j,i,color);
-                color.red   /= 2;
-                color.green /= 2;
-                color.blue  /= 2;
-                this->set_pixel(j,i,color);
-            }
-        }
-    }
-    void detect_image()
-    {
-        rgb_t color;
-        rgb_t color2 = {255,255,255};
-        unsigned char c = 0;
-        this->BW_image();
-        for(unsigned int i = 0; i < this->height_; i++)
-        {
-            for(unsigned int j = 0; j < this->width_; j++)
-            {
-                this->get_pixel(j,i,color);
-                if(color.red == 0)
-                {
-                    c = color.red;
-                    for(unsigned int k = j+1; c != 255 && k < this->width_-1; k++)
-                    {
-                        this->set_pixel(k,i,color2);
-                        this->get_pixel(k+1,i,color);
-                        c = color.red;
-                    }
-                }
-            }
-        }
-    }
-    image enlarge_image(int _sI,int _sJ)
-    {
-        rgb_t color;
-        image temp = *this;
-        for(unsigned int i = _sI,c = 0; i < _sI + this->height_/2; i++,c+=2)
-        {
-            for(unsigned int j = _sJ,k = 0; j < _sJ + this->width_/2; j++,k+=2)
-            {
-                this->get_pixel(j,i,color);
-                temp.set_pixel(k,c,color);
-                temp.set_pixel(k+1,c,color);
-                temp.set_pixel(k,c+1,color);
-                temp.set_pixel(k+1,c+1,color);
-            }
-        }
-        return temp;
-    }
-    image shrink_image(int _s)
-    {
-        rgb_t color1;
-        rgb_t color2;
-        rgb_t color3;
-        rgb_t color4;
-        rgb_t color5;
-        image temp(this->width_/ _s + _s/4,this->height_/ _s + _s/4);
-        for(unsigned int i = 0; i < this->height_-1; i++)
-        {
-            for(unsigned int j = 0; j < this->width_-1; j++)
-            {
-                this->get_pixel(j,i,color1);
-                this->get_pixel(j+1,i,color2);
-                this->get_pixel(j,i+1,color3);
-                this->get_pixel(j+1,i+1,color4);
-                color5.red   = (color1.red + color2.red + color3.red + color4.red)/(_s*2);
-                color5.green = (color1.green + color2.green + color3.green + color4.green)/(_s*2);
-                color5.blue  = (color1.blue + color2.blue + color3.blue + color4.blue)/(_s*2) ;
-                temp.set_pixel(j / _s,i / _s,color5);
-            }
-        }
-        return temp;
-
-    }
-    void mirror_upper_image()
-    {
-        rgb_t color;
-        for(unsigned int i = this->height_/2 ; i < this->height_ ; i++)
-        {
-            for(unsigned int j = 0 ; j < this->width_ ; j++)
-            {
-                this->get_pixel(j,this->height_-i-1,color);
-                this->set_pixel(j,i,color);
-            }
-        }
-    }
-    void mirror_lower_image()
-    {
-        rgb_t color;
-        for(unsigned int i = this->height_/2 ; i < this->height_ ; i++)
-        {
-            for(unsigned int j = 0 ; j < this->width_ ; j++)
-            {
-                this->get_pixel(j,i,color);
-                this->set_pixel(j,this->height_-i-1,color);
-            }
-        }
-    }
-    void mirror_right_image()
-    {
-        rgb_t color;
-        for(unsigned int i = 0 ; i < this->height_ ; i++)
-        {
-            for(unsigned int j = this->width_/2 ; j < this->width_ ; j++)
-            {
-                this->get_pixel(j,i,color);
-                this->set_pixel(this->width_-1-j,i,color);
-            }
-        }
-    }
-    void mirror_left_image()
-    {
-        rgb_t color;
-        for(unsigned int i = 0 ; i < this->height_ ; i++)
-        {
-            for(unsigned int j = this->width_/2 ; j < this->width_ ; j++)
-            {
-                this->get_pixel(this->width_-1-j,i,color);
-                this->set_pixel(j,i,color);
-            }
-        }
-    }
-    image q(int _q)
-    {
-        int _sI, _sJ;
-        rgb_t color;
-        image temp(this->width_/2,this->height_/2);
-        if(_q == 1)
-        {
-            _sI = 0;
-            _sJ = 0;
-        }
-        else if(_q == 2)
-        {
-            _sI = 0;
-            _sJ = this->width_/2;
-        }
-        else if(_q == 3)
-        {
-            _sI = this->height_/2;
-            _sJ = 0;
-        }
-        else if(_q == 4)
-        {
-            _sI = this->height_/2;
-            _sJ = this->width_/2;
-        }
-        for(unsigned int i = _sI ; i < _sI + this->height_/2; i++)
-        {
-            for(unsigned int j = _sJ; j < _sJ + this->width_/2; j++)
-            {
-                this->get_pixel(j,i,color);
-                temp.set_pixel(j-_sJ,i-_sI,color);
-            }
-        }
-        return temp;
-    }
-    image shuffle_image(int *arr)
-    {
-        rgb_t color;
-        image temp(this->width_,this->height_);
-        image t(q(arr[0]));
-        for(unsigned int i = 0 ; i < this->height_/2; i++)
-        {
-            for(unsigned int j = 0; j < this->width_/2; j++)
-            {
-                t.get_pixel(j,i,color);
-                temp.set_pixel(j,i,color);
-            }
-        }
-        t = q(arr[1]);
-        for(unsigned int i = 0,k = 0; i < this->height_/2; i++,k++)
-        {
-            for(unsigned int j = this->width_/2, c = 0; j < this->width_; j++,c++)
-            {
-                t.get_pixel(c,k,color);
-                temp.set_pixel(j,i,color);
-            }
-        }
-        t = q(arr[2]);
-        for(unsigned int i = this->height_/2,k = 0; i < this->height_; i++,k++)
-        {
-            for(unsigned int j = 0, c = 0; j < this->width_/2; j++,c++)
-            {
-                t.get_pixel(c,k,color);
-                temp.set_pixel(j,i,color);
-            }
-        }
-        t = q(arr[3]);
-        for(unsigned int i =  this->height_/2,k = 0; i < this->height_; i++,k++)
-        {
-            for(unsigned int j = this->width_/2, c = 0; j < this->width_; j++,c++)
-            {
-                t.get_pixel(c,k,color);
-                temp.set_pixel(j,i,color);
-            }
-        }
-        return temp;
-    }
-    void blur_image()
-    {
-        image temp = *this;
-        unsigned int effect = 7;
-        rgb_t color;
-        for (unsigned int i = 0; i < this->height_; ++i)
-        {
-            for (unsigned int j = 0; j <  this->width_; ++j)
-            {
-                unsigned int avgR = 0, avgG = 0, avgB = 0;
-                unsigned int c = 0;
-                for (unsigned int k = 0 - ((effect - 1) / 2); k <= ((effect - 1) / 2); ++k)
-                {
-                    for (unsigned int l = 0 - ((effect- 1) / 2); l <= ((effect - 1) / 2); ++l)
-                    {
-                        if (i + k >= 0 && i + k <  this->height_ && j + l >= 0 && j + l < this->width_)
-                        {
-                            temp.get_pixel(j + l,i + k,color);
-                            avgR += color.red;
-                            avgG += color.green;
-                            avgB += color.blue;
-                            ++c;
-                        }
-                    }
-                }
-                avgR /= c;
-                avgG /= c;
-                avgB /= c;
-                color.red   = avgR;
-                color.green = avgG ;
-                color.blue  = avgB;
-                this->set_pixel(j,i,color);
-            }
-        }
-    }
-    unsigned int pixel_count() const
-    {
-        return width_ * height_;
-    }
-    unsigned int get_width() const
-    {
-        return width_;
-    }
-    unsigned int get_height() const
-    {
-        return height_;
-    }
-    unsigned int get_size() const
-    {
-        return pixel_count() * bytes_per_pixel_;
-    }
-private:
 
     std::string  file_name_;
     unsigned int width_;
@@ -616,7 +35,7 @@ private:
     unsigned int row_increment_;
     unsigned int bytes_per_pixel_;
     channel_mode channel_mode_;
-    std::vector<unsigned char> data_;
+    vector<unsigned char> data_;
 
     struct bitmap_file_header
     {
@@ -874,11 +293,13 @@ private:
             stream.read(padding_data,padding);
         }
     }
+
     void create_bitmap()
     {
         row_increment_ = width_ * bytes_per_pixel_;
         data_.resize(height_ * row_increment_);
     }
+
     void read_bfh(std::ifstream& stream, bitmap_file_header& bfh)
     {
         read_from_stream(stream,bfh.type     );
@@ -902,7 +323,8 @@ private:
     {
         stream.read(reinterpret_cast<char*>(&t),sizeof(T));
     }
-    std::size_t file_size(const std::string& file_name) const
+
+    size_t file_size(const std::string& file_name) const
     {
         std::ifstream file(file_name.c_str(),std::ios::in | std::ios::binary);
         if (!file)
@@ -910,13 +332,637 @@ private:
         file.seekg (0, std::ios::end);
         return static_cast<std::size_t>(file.tellg());
     }
+
     unsigned char* row(unsigned int row_index) const
     {
         return const_cast<unsigned char*>(&data_[(row_index * row_increment_)]);
     }
+
+public:
+
+    image()
+        :
+        file_name_(""),
+        width_(0),
+        height_(0),
+        row_increment_(0),
+        bytes_per_pixel_(3)
+    {}
+
+    image(const std::string& filename)
+        :
+        file_name_(filename),
+        width_          (0),
+        height_         (0),
+        row_increment_  (0),
+        bytes_per_pixel_(0),
+        channel_mode_(bgr_mode)
+    {
+        load_bitmap();
+    }
+
+    image(const unsigned int width, const unsigned int height)
+        :
+        file_name_(""),
+        width_ (width ),
+        height_(height),
+        row_increment_  (0),
+        bytes_per_pixel_(3),
+        channel_mode_(bgr_mode)
+    {
+        create_bitmap();
+    }
+
+    image(const image& image)
+        :
+        file_name_(image.file_name_),
+        width_    (image.width_    ),
+        height_   (image.height_   ),
+        row_increment_  (0),
+        bytes_per_pixel_(3),
+        channel_mode_(bgr_mode)
+    {
+        create_bitmap();
+        data_ = image.data_;
+    }
+	
+	bool operator!()
+    {
+        return (data_.size()   == 0) ||
+               (width_         == 0) ||
+               (height_        == 0) ||
+               (row_increment_ == 0);
+    }
+
+	operator bool()
+    {
+        return (data_.size()    != 0) &&
+               (width_          != 0) &&
+               (height_         != 0) &&
+               (row_increment_  != 0);
+    }
+
+    image& operator=(const image& image)
+    {
+        if (this != &image)
+        {
+            file_name_       = image.file_name_;
+            bytes_per_pixel_ = image.bytes_per_pixel_;
+            width_           = image.width_;
+            height_          = image.height_;
+            row_increment_   = 0;
+            channel_mode_    = image.channel_mode_;
+            create_bitmap();
+            data_ = image.data_;
+        }
+        return *this;
+    }
+
+    void set_image(string file_name)
+    {
+        file_name_       =  file_name;
+        width_           =	0;
+        height_          =	0;
+        row_increment_   =	0;
+        bytes_per_pixel_ =	0;
+        channel_mode_    =	bgr_mode;
+        load_bitmap();
+    }
+
+    void save_image(const std::string& file_name) const
+    {
+        std::ofstream stream(file_name.c_str(),std::ios::binary);
+
+        if (!stream)
+        {
+            std::cerr << "image::save_image(): Error - Could not open file "  << file_name << " for writing!" << std::endl;
+            return;
+        }
+
+        bitmap_information_header bih;
+
+        bih.width            = width_;
+        bih.height           = height_;
+        bih.bit_count        = static_cast<unsigned short>(bytes_per_pixel_ << 3);
+        bih.clr_important    = 0;
+        bih.clr_used         = 0;
+        bih.compression      = 0;
+        bih.planes           = 1;
+        bih.size             = bih.struct_size();
+        bih.x_pels_per_meter = 0;
+        bih.y_pels_per_meter = 0;
+        bih.size_image       = (((bih.width * bytes_per_pixel_) + 3) & 0x0000FFFC) * bih.height;
+
+        bitmap_file_header bfh;
+
+        bfh.type             = 19778;
+        bfh.size             = bfh.struct_size() + bih.struct_size() + bih.size_image;
+        bfh.reserved1        = 0;
+        bfh.reserved2        = 0;
+        bfh.off_bits         = bih.struct_size() + bfh.struct_size();
+
+        write_bfh(stream,bfh);
+        write_bih(stream,bih);
+
+        unsigned int padding = (4 - ((3 * width_) % 4)) % 4;
+        char padding_data[4] = { 0x00, 0x00, 0x00, 0x00 };
+
+        for (unsigned int i = 0; i < height_; ++i)
+        {
+            const unsigned char* data_ptr = &data_[(row_increment_ * (height_ - i - 1))];
+
+            stream.write(reinterpret_cast<const char*>(data_ptr), sizeof(unsigned char) * bytes_per_pixel_ * width_);
+            stream.write(padding_data,padding);
+        }
+
+        stream.close();
+    }
+
+    void get_pixel(const unsigned int x, const unsigned int y,
+                   unsigned char& red,
+                   unsigned char& green,
+                   unsigned char& blue) const
+    {
+        const unsigned int y_offset = y * row_increment_;
+        const unsigned int x_offset = x * bytes_per_pixel_;
+        const unsigned int offset   = y_offset + x_offset;
+
+        blue  = data_[offset + 0];
+        green = data_[offset + 1];
+        red   = data_[offset + 2];
+    }
+
+    template <typename RGB>
+    void get_pixel(const unsigned int x, const unsigned int y, RGB& colour) const
+    {
+        get_pixel(x, y, colour.red, colour.green, colour.blue);
+    }
+
+    rgb_t get_pixel(const unsigned int x, const unsigned int y) const
+    {
+        rgb_t colour;
+        get_pixel(x, y, colour.red, colour.green, colour.blue);
+        return colour;
+    }
+
+    void set_pixel(const unsigned int x, const unsigned int y,
+                   const unsigned char red,
+                   const unsigned char green,
+                   const unsigned char blue)
+    {
+        const unsigned int y_offset = y * row_increment_;
+        const unsigned int x_offset = x * bytes_per_pixel_;
+        const unsigned int offset   = y_offset + x_offset;
+
+        data_[offset + 0] = blue;
+        data_[offset + 1] = green;
+        data_[offset + 2] = red;
+    }
+
+    void set_pixel(const unsigned int x, const unsigned int y,rgb_t _color)
+    {
+        set_pixel(x,y,_color.red,_color.green,_color.blue);
+    }
+
+    void invert_image()
+    {
+        rgb_t color;
+        for(unsigned int i = 0 ; i < this->height_; i++)
+        {
+            for(unsigned int j = 0 ; j < this->width_; j++)
+            {
+                this->get_pixel(j,i,color);
+                this->set_pixel(j,i,255-color.red,255-color.red,255-color.blue);
+            }
+        }
+    }
+
+    void greyscale_image()
+    {
+        unsigned char temp = 0;
+        rgb_t color;
+        for (unsigned int i = 0; i < this->height_; ++i)
+        {
+            for (unsigned int j = 0; j < this->width_; ++j)
+            {
+                this->get_pixel(j,i,color);
+                temp        = max(color.red,max(color.green,color.blue));
+                color.red   = temp;
+                color.green = temp;
+                color.blue  = temp;
+                this->set_pixel(j,i,color);
+            }
+        }
+    }
+
+    void BW_image()
+    {
+        unsigned int sum = 0;
+        unsigned char avg = 0;
+        rgb_t color;
+        for (unsigned int i = 0; i < this->height_; ++i)
+        {
+            for (unsigned int j = 0; j < this->width_; ++j)
+            {
+                this->get_pixel(j,i,color);
+                sum += color.red;
+                sum += color.green;
+                sum += color.blue;
+            }
+        }
+        avg = sum / ( (this->height_ * this->width_) * 3);
+        for (unsigned int i = 0; i < this->height_; ++i)
+        {
+            for (unsigned int j = 0; j < this->width_; ++j)
+            {
+                this->get_pixel(j,i,color);
+                if((color.red + color.green + color.blue)/3  > avg)
+                {
+                    color.red   = 255;
+                    color.green = 255;
+                    color.blue  = 255;
+                }
+                else
+                {
+                    color.red   = 0;
+                    color.green = 0;
+                    color.blue  = 0;
+                }
+                this->set_pixel(j,i,color);
+            }
+        }
+    }
+
+    void merge_image(image _img2)
+    {
+        if(_img2.height_ == this->height_ && _img2.width_ == this->width_)
+        {
+            rgb_t color1;
+            rgb_t color2;
+            rgb_t color3;
+            for (unsigned int i = 0; i < this->height_; ++i)
+            {
+                for (unsigned int j = 0; j < this->width_; ++j)
+                {
+                    this->get_pixel(j,i,color1);
+                    _img2.get_pixel(j,i,color2);
+                    color3.red   = (color1.red + color2.red) / 2;
+                    color3.green = (color1.green + color2.green) / 2;
+                    color3.blue  = (color1.blue + color2.blue) / 2;
+                    this->set_pixel(j,i,color3);
+                }
+            }
+        }
+        else
+        {
+            cout << "image::merge_image(image _img2): Error - The height and width of the two images are not equal " << endl;
+        }
+    }
+
+    void flip_image(char _c)
+    {
+
+        if(_c == 'v')
+        {
+            rgb_t color1;
+            rgb_t color2;
+            for (unsigned int i = 0; i < this->height_/2; ++i)
+            {
+                for (unsigned int j = 0; j < this->width_; ++j)
+                {
+                    this->get_pixel(j,i,color1);
+                    this->get_pixel(j,height_-1-i,color2);
+                    this->set_pixel(j,i,color2);
+                    this->set_pixel(j,height_-1-i,color1);
+                }
+            }
+        }
+        else if(_c == 'h')
+        {
+            rgb_t color1;
+            rgb_t color2;
+            for (unsigned int i = 0; i < this->height_; ++i)
+            {
+                for (unsigned int j = 0; j < this->width_/2; ++j)
+                {
+                    this->get_pixel(j,i,color1);
+                    this->get_pixel(width_-1-j,i,color2);
+                    this->set_pixel(j,i,color2);
+                    this->set_pixel(width_-1-j,i,color1);
+                }
+            }
+        }
+    }
+
+    void rotate_image(unsigned int rotations)
+    {
+        for (unsigned int r = 0; r < rotations; ++r)
+        {
+            image temp(this->height_,this->width_);
+            rgb_t color;
+            for (unsigned int i = 0; i < this->height_; ++i)
+            {
+                for (unsigned int j = 0; j < this->width_; ++j)
+                {
+                    this->get_pixel(j,i,color);
+                    temp.set_pixel(i,this->width_-1-j,color);
+                }
+            }
+            *this = temp;
+        }
+
+    }
+
+    void lighten_image()
+    {
+        rgb_t color;
+        for(unsigned int i = 0 ; i < this->height_; i++)
+        {
+            for(unsigned int j = 0 ; j < this->width_; j++)
+            {
+                this->get_pixel(j,i,color);
+                color.red   = min(color.red   * 2,255);
+                color.green = min(color.green * 2,255);
+                color.blue  = min(color.blue  * 2,255);
+                this->set_pixel(j,i,color);
+            }
+        }
+    }
+
+    void darken_image()
+    {
+        rgb_t color;
+        for(unsigned int i = 0 ; i < this->height_; i++)
+        {
+            for(unsigned int j = 0 ; j < this->width_; j++)
+            {
+                this->get_pixel(j,i,color);
+                color.red   /= 2;
+                color.green /= 2;
+                color.blue  /= 2;
+                this->set_pixel(j,i,color);
+            }
+        }
+    }
+
+    void detect_image()
+    {
+        rgb_t color;
+        rgb_t color2 = {255,255,255};
+        unsigned char c = 0;
+        this->BW_image();
+        for(unsigned int i = 0; i < this->height_; i++)
+        {
+            for(unsigned int j = 0; j < this->width_; j++)
+            {
+                this->get_pixel(j,i,color);
+                if(color.red == 0)
+                {
+                    c = color.red;
+                    for(unsigned int k = j+1; c != 255 && k < this->width_-1; k++)
+                    {
+                        this->set_pixel(k,i,color2);
+                        this->get_pixel(k+1,i,color);
+                        c = color.red;
+                    }
+                }
+            }
+        }
+    }
+
+    image enlarge_image(int _sI,int _sJ)
+    {
+        rgb_t color;
+        image temp = *this;
+        for(unsigned int i = _sI,c = 0; i < _sI + this->height_/2; i++,c+=2)
+        {
+            for(unsigned int j = _sJ,k = 0; j < _sJ + this->width_/2; j++,k+=2)
+            {
+                this->get_pixel(j,i,color);
+                temp.set_pixel(k,c,color);
+                temp.set_pixel(k+1,c,color);
+                temp.set_pixel(k,c+1,color);
+                temp.set_pixel(k+1,c+1,color);
+            }
+        }
+        return temp;
+    }
+
+    image shrink_image(int _s)
+    {
+        rgb_t color1;
+        rgb_t color2;
+        rgb_t color3;
+        rgb_t color4;
+        rgb_t color5;
+        image temp(this->width_/ _s + _s/4,this->height_/ _s + _s/4);
+        for(unsigned int i = 0; i < this->height_-1; i++)
+        {
+            for(unsigned int j = 0; j < this->width_-1; j++)
+            {
+                this->get_pixel(j,i,color1);
+                this->get_pixel(j+1,i,color2);
+                this->get_pixel(j,i+1,color3);
+                this->get_pixel(j+1,i+1,color4);
+                color5.red   = (color1.red + color2.red + color3.red + color4.red)/(_s*2);
+                color5.green = (color1.green + color2.green + color3.green + color4.green)/(_s*2);
+                color5.blue  = (color1.blue + color2.blue + color3.blue + color4.blue)/(_s*2) ;
+                temp.set_pixel(j / _s,i / _s,color5);
+            }
+        }
+        return temp;
+
+    }
+
+    void mirror_upper_image()
+    {
+        rgb_t color;
+        for(unsigned int i = this->height_/2 ; i < this->height_ ; i++)
+        {
+            for(unsigned int j = 0 ; j < this->width_ ; j++)
+            {
+                this->get_pixel(j,this->height_-i-1,color);
+                this->set_pixel(j,i,color);
+            }
+        }
+    }
+
+    void mirror_lower_image()
+    {
+        rgb_t color;
+        for(unsigned int i = this->height_/2 ; i < this->height_ ; i++)
+        {
+            for(unsigned int j = 0 ; j < this->width_ ; j++)
+            {
+                this->get_pixel(j,i,color);
+                this->set_pixel(j,this->height_-i-1,color);
+            }
+        }
+    }
+
+    void mirror_right_image()
+    {
+        rgb_t color;
+        for(unsigned int i = 0 ; i < this->height_ ; i++)
+        {
+            for(unsigned int j = this->width_/2 ; j < this->width_ ; j++)
+            {
+                this->get_pixel(j,i,color);
+                this->set_pixel(this->width_-1-j,i,color);
+            }
+        }
+    }
+
+    void mirror_left_image()
+    {
+        rgb_t color;
+        for(unsigned int i = 0 ; i < this->height_ ; i++)
+        {
+            for(unsigned int j = this->width_/2 ; j < this->width_ ; j++)
+            {
+                this->get_pixel(this->width_-1-j,i,color);
+                this->set_pixel(j,i,color);
+            }
+        }
+    }
+
+    image q(int _q)
+    {
+        int _sI, _sJ;
+        rgb_t color;
+        image temp(this->width_/2,this->height_/2);
+        if(_q == 1)
+        {
+            _sI = 0;
+            _sJ = 0;
+        }
+        else if(_q == 2)
+        {
+            _sI = 0;
+            _sJ = this->width_/2;
+        }
+        else if(_q == 3)
+        {
+            _sI = this->height_/2;
+            _sJ = 0;
+        }
+        else if(_q == 4)
+        {
+            _sI = this->height_/2;
+            _sJ = this->width_/2;
+        }
+        for(unsigned int i = _sI ; i < _sI + this->height_/2; i++)
+        {
+            for(unsigned int j = _sJ; j < _sJ + this->width_/2; j++)
+            {
+                this->get_pixel(j,i,color);
+                temp.set_pixel(j-_sJ,i-_sI,color);
+            }
+        }
+        return temp;
+    }
+
+    image shuffle_image(int *arr)
+    {
+        rgb_t color;
+        image temp(this->width_,this->height_);
+        image t(q(arr[0]));
+        for(unsigned int i = 0 ; i < this->height_/2; i++)
+        {
+            for(unsigned int j = 0; j < this->width_/2; j++)
+            {
+                t.get_pixel(j,i,color);
+                temp.set_pixel(j,i,color);
+            }
+        }
+        t = q(arr[1]);
+        for(unsigned int i = 0,k = 0; i < this->height_/2; i++,k++)
+        {
+            for(unsigned int j = this->width_/2, c = 0; j < this->width_; j++,c++)
+            {
+                t.get_pixel(c,k,color);
+                temp.set_pixel(j,i,color);
+            }
+        }
+        t = q(arr[2]);
+        for(unsigned int i = this->height_/2,k = 0; i < this->height_; i++,k++)
+        {
+            for(unsigned int j = 0, c = 0; j < this->width_/2; j++,c++)
+            {
+                t.get_pixel(c,k,color);
+                temp.set_pixel(j,i,color);
+            }
+        }
+        t = q(arr[3]);
+        for(unsigned int i =  this->height_/2,k = 0; i < this->height_; i++,k++)
+        {
+            for(unsigned int j = this->width_/2, c = 0; j < this->width_; j++,c++)
+            {
+                t.get_pixel(c,k,color);
+                temp.set_pixel(j,i,color);
+            }
+        }
+        return temp;
+    }
+
+    void blur_image()
+    {
+        image temp = *this;
+        unsigned int effect = 7;
+        rgb_t color;
+        for (unsigned int i = 0; i < this->height_; ++i)
+        {
+            for (unsigned int j = 0; j <  this->width_; ++j)
+            {
+                unsigned int avgR = 0, avgG = 0, avgB = 0;
+                unsigned int c = 0;
+                for (unsigned int k = 0 - ((effect - 1) / 2); k <= ((effect - 1) / 2); ++k)
+                {
+                    for (unsigned int l = 0 - ((effect- 1) / 2); l <= ((effect - 1) / 2); ++l)
+                    {
+                        if (i + k >= 0 && i + k <  this->height_ && j + l >= 0 && j + l < this->width_)
+                        {
+                            temp.get_pixel(j + l,i + k,color);
+                            avgR += color.red;
+                            avgG += color.green;
+                            avgB += color.blue;
+                            ++c;
+                        }
+                    }
+                }
+                avgR /= c;
+                avgG /= c;
+                avgB /= c;
+                color.red   = avgR;
+                color.green = avgG ;
+                color.blue  = avgB;
+                this->set_pixel(j,i,color);
+            }
+        }
+    }
+
+    unsigned int pixel_count() const
+    {
+        return width_ * height_;
+    }
+
+    unsigned int get_width() const
+    {
+        return width_;
+    }
+
+    unsigned int get_height() const
+    {
+        return height_;
+    }
+
+    unsigned int get_size() const
+    {
+        return pixel_count() * bytes_per_pixel_;
+    }
 };
 
-typedef image::rgb_t rgb_t;
+//typedef image::rgb_t rgb_t;
 
 
 #endif //__H__IMAGE__
